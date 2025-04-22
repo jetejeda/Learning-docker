@@ -104,7 +104,7 @@ When you run a container with the docker run containerName command, it will run 
 You can run a container in a detach mode. This will run the docker container in the background mode and you will be back to your prompt immediately.
 
 ```sh
-docker run -d containerName
+docker run -d imageName
 ```
 
 If you would like to attach back to the running detach container, run the docker attach command and specify the name or ID of the docker container:
@@ -114,3 +114,88 @@ docker attach containerNameOrID
 ```
 
 If you're specifying the ID of a container in any Docker command, you can simply provide the first few characters alone just so it is different from the other containers ID.
+
+# Docker run
+
+As you may noticed when we use a docker run command, we only specified the image that we will use for that container, but we can also specify the version of the image that we want to use. By default, docker will use the image that has the tag "latest". We can indicate the specific tag that we want using the next syntax:
+
+```sh
+docker run yourImage:image.version
+docker run ubuntu:4.04
+```
+
+Everything after the ":" is the . Docker will pull the image that has that tag. An image can have multiple tags related to it.
+
+## Inputs
+
+When we have an application that needs an input. If we use docker to run that application, it wouldn't for the input prompt. It will only perform the standard output. That is because by default, docker containers does not listen to a standard input, even though you are attached to its console. It doesn't have a terminal to read inputs from (runs in a non interactive mode). If you'd like to provide your input, you must map the standard input of your host to the Docker container using the next syntax:
+
+```sh
+docker run -i imageName
+```
+
+That parameter stands for interactive mode.
+
+Expected behavior:
+![alt text](./img/params-expected.png)
+
+Current result:
+![alt text](./img/params-current.png)
+
+Although we have provided the -i option, we are missing the "Welcome! Please enter your name: " prompt. That is because the application is prompted on the terminal, but we haven't attached to the containers terminal. In order to solve this, we can send the command with the -it option.
+
+```sh
+docker run -it imageName
+```
+
+![alt text](./img/params-detached.png)
+
+## Port mapping or port publishing
+
+The underlying host where Docker is installed is called Docker host (or Docker engine). When we run a containerized application, we are able to see that its running and we are able to access to that application with the next two options.
+
+1. Use the IP of the Docker container: Every Docker container gets an IP assign by default. This is an internal IP that is only accessible within the Docker host.
+2. Use the IP of the Docker host: For this to work, we must have mapped the port inside the Docker container to a free port on the host
+
+```sh
+docker run -p 80:5000 imageName
+```
+
+In the previous example, my users will have access to my application through Port 80 on my Docker host. As mentioned, my container is running on the port 5000 from the Docker container IP. All the traffic on port 80 on the docker host will get routed to port 5000 inside the Docker container.
+
+This way, you can run multiple instances of your application and map them to different ports on the docker host or run instances of different applications on different ports. You cannot map to the port of the docker host more than once. You cannot add a port mapping while the service/container is running, first you have to stop it.
+![alt text](./img/port-mapping.png)
+
+## Volume mapping
+
+This is used to persist data in a Docker container. Docker containers have their own isolated file system. Any changes to any files happen within the container.
+
+What happens if you were to delete a container and remove it? As soon as you do that, the container, along with all the data inside it gets blown away (all the data is gone). If you would like to persist data, you would want to map a directory outside the container on the docker host to a directory inside the container. This way, when the Docker container runs, it will implicitly mount the external directory to a folder inside the container. Therefore, all the data will be stored in the external volume and it will remain even if you delete the docker container.
+
+```sh
+docker run -v docker/host/folder:container/folder imageName
+docker run -v /opt/datadir:/var/lib/mysql mysql
+```
+
+### Show the details of a container
+
+It returns all details of a container in JSON format.
+
+```sh
+docker inspect containerNameOrID
+```
+
+## Container Logs
+
+Useful to see the logs of container we run in the background. Logs are the contents written to the standard out of a container.
+
+```sh
+docker logs containerNameOrID
+```
+
+## Sending a command while running a container
+
+```sh
+docker run imageName your-command
+docker run ubuntu cat /etc/*release*
+```

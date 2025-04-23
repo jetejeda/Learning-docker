@@ -274,3 +274,77 @@ docker inspect yourContainerNameOrID
 When you run this command it will display all the information related to that container in a JSON format, inside the Config section you can find all the environment variables inside the "Env" object:
 
 ![alt text](./img/environment-variables.png)
+
+# Command vs Entrypoint
+
+Containers are not meant to run an OS, they are meant to run a specific task or process. Therefore, containers only live as long as the process inside it is alive. But, who defines what process is run within the container? There are commands inside the Dockerfiles that created the base images. These commands indicate what will be executed when a container is run based on a certain image.
+
+## CMD command
+
+It defines the program that will run within the container. It's the most common for base images.
+
+How can we specify a different command to start a container?
+
+1. Append a command to the Docker run command, and that way it overrides the default command specified within the image.
+
+```sh
+docker run yourImageName [COMMAND]
+docker run ubuntu sleep 5
+```
+
+2. As you may notice, you will have to indicate to command every time you run a container from that image, but can we make that change permanent? Within your Docker file yo can add a CMD instruction that can have either the command simply as in a shell form or in a JSON array format. Remember that when you use the JSON array format, the first element should be the executable.
+
+```Dockerfile
+CMD command param1
+CMD ["command", "param1"]
+#Example
+CMD ["sleep", "5"]
+
+```
+
+## ENTRYPOINT
+
+With the previous approach we were able to create an image that will always sleep 5 seconds before exiting. The issue with this is that every time we run a container it will sleep 5 seconds, but if we wanted to increase/decrease the number of seconds we would still need the first approach (send the command with the run command to override the sleep 5 command). In order to solve this we have the ENTRYPOINT instruction.
+
+The ENTRYPOINT instruction is like the CMD instruction, as you can specify the program that will be run when the container starts. Then whatever you specify on the command line will get appended to the ENTRYPOINT.
+
+```Dockerfile
+FROM ubuntu
+ENTRYPOINT ["sleep"]
+```
+
+Thanks to this approach, when you run a container based on that image you just have to pass the params.
+
+```sh
+docker run yourImageName [PARAMS]
+docker run ubuntu 10
+```
+
+Will be equivalent to run a "sleep 10" when the container starts.
+
+### Default values for startup
+
+Since we are using an ENTRYPOINT command, we are required to send the param whenever we run a container, otherwise, the command will fail if it needs the params. To solve this issue, we can configure a default value for the command if it's not specified in the command line.
+
+In order to this, we are going to mix both the ENTRYPOINT and CMD instructions.
+
+```Dockerfile
+ENTRYPOINT command
+CMD defaultParam
+#Example
+FROM ubuntu
+ENTRYPOINT ["sleep"]
+CMD ["5"]
+```
+
+In this case, the CMD instruction will be appended to the ENTRYPOINT instruction. At startup, the command would be "sleep 5" if you didn't specified any parameters in the command line, if you did, then that will override the CMD instruction.
+
+For this to happen, you must specify the ENTRYPOINT and CMD instructions in a JSON format.
+
+Finally, as mentioned, by now you will only be able to modify the CMD command (when using the combination between the CMD and ENTRYPOINT instructions). Can we also change the ENTRYPOINT value? Yes, by using the --entrypoint option in the Docker run command. Here is an example:
+
+```sh
+docker run --entrypoint [NEW_COMMAND] yourImageName [PARAMS]
+# Since we are just updating the ENTRYPOINT instruction, and we have a CMD instruction with the default params, that section is optional.
+docker run --entrypoint sleep2.0 ubuntu 15
+```

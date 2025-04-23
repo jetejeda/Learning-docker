@@ -199,3 +199,60 @@ docker logs containerNameOrID
 docker run imageName your-command
 docker run ubuntu cat /etc/*release*
 ```
+
+# Docker images
+
+With docker you can create your own images based on your own requirements. The first thing is to understand what application we are creating an image for and how its built.
+
+The common steps are:
+
+1. Create a Dockerfile
+2. Install an OS (Ubuntu)
+3. Update apt repo
+4. Install dependencies using the apt command
+5. Install software (python) dependencies using pip
+6. Copy the source code of the application to a location (it will be copied to a folder within the container)
+7. Define an ENTRYPOINT and run the server/code
+
+Build the docker image
+
+```sh
+docker build . -f Docerfile -t yourImageName
+```
+
+This will create an image locally on your system. In order to make it available on the Public Docker Hub Registry, run the push command with the image tag we have just created. In order to publish to the docker hub, first you need to be logged in to your docker account.
+
+You can only push to repositories under your own account.
+
+```sh
+docker login
+#Type your username and password
+docker push accountRepo/yourImageName
+```
+
+## Dockerfile
+
+Is a text file written in an specific format that docker can understand. It follow the "instruction argument" format. Every docker image must be based off of another image, either an OS or another image that was created.
+
+```Dockerfile
+FROM Ubuntu
+
+RUN apt-get update && apt-get -y install python python-pip
+RUN pip install flask flask-mysql
+COPY . /opt/source-code
+ENTRYPOINT FLASK_APP=/opt/source-code/app.py flask run
+```
+
+| INSTRUCTION | ARGUMENT                                    | USE                                                                     |
+| :---------- | :------------------------------------------ | :---------------------------------------------------------------------- |
+| FROM        | Ubuntu                                      | All docker files must start with this instruction                       |
+| RUN         | apt-get update && apt-get -y install python | Run a particular command on the base images                             |
+| COPY        | . /opt/source-code                          | Copy a file from the local system onto the image                        |
+| ENTRYPOINT  | FLASK_APP=/opt/source-code/app.py flask run | Specify a command that will be run when the image is run as a container |
+
+When a docker image is built. Each line of instruction creates a new layer in the Docker image with just the changes from the previous
+layer. All the layers built are cached by Docker. Thanks to this, in case a particular step was to fail, it will reuse the previous layers from cache and continue to build the remaining layers. The same is true if you were to add additional steps in the Docker file. You can see the size for each step using the history command:
+
+```sh
+docker history yourImageName
+```

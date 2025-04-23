@@ -256,3 +256,21 @@ layer. All the layers built are cached by Docker. Thanks to this, in case a part
 ```sh
 docker history yourImageName
 ```
+
+# Environment Variables
+
+You can set up environment variables for your container each time you run it. In order to do so, you just have to use this command:
+
+```sh
+docker run -e VARIABLE_NAME=value yourImageName
+```
+
+You can also at the environment variables when a container is already running:
+
+```sh
+docker inspect yourContainerNameOrID
+```
+
+When you run this command it will display all the information related to that container in a JSON format, inside the Config section you can find all the environment variables inside the "Env" object:
+
+![alt text](./img/environment-variables.png)

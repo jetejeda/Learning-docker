@@ -552,3 +552,30 @@ networks:
 # Repo for voting-app source code
 
 [Link to official docker samples repo with voting-app source code](https://github.com/dockersamples/example-voting-app)
+
+# Docker registry
+
+It's where Docker images are stored. It's a central repository of all docker images.
+
+If we don't specify a location for the an image that we want to pull, it is assumed that it will be in Docker default's registry. That is Docker Hub which DNS name is docker.io/.The registry is where all images are stored.
+
+We have been creating containers that will have our source code, but docker hub is for public images. Many cloud service providers provide a private registry by default. Thanks to this, we will be able to require credentials in order to access the image.
+
+```sh
+#Command to login to your private registry
+docker login yourPrivateRegistry
+```
+
+```sh
+docker run your-private-registry.io/repository/yourImage
+```
+
+## Deploy your own private registry
+
+The docker registry is itself another application, and is available as a Docker image. The image is called "registry" and it exposes the API on port 5000. Once you have a running container based on the registry image, you have your customer registry running on port 5000. On this Docker host, you can push your own custom images. To achieve this, you have to add a tag to the image with the private registry URL in it
+
+```sh
+docker run -d -p 5000:5000 --name registry registry:2
+
+docker image tag sourceImage your_private_registry_url/imageName
+```

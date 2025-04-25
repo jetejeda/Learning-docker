@@ -1,0 +1,43 @@
+version: "3"
+
+services:
+  redis:
+    image: redis
+    networks:
+      - back-end
+  db:
+    image: postgres:9.4
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    networks:
+      - back-end
+  voting-app:
+    build: ./src/vote
+    ports:
+      - 5000:80
+    depends_on:
+      - redis
+    networks:
+      - back-end
+      - front-end
+  result:
+    build: ./src/result
+    ports:
+      - 5001:80
+    depends_on:
+      - db
+    networks:
+      - back-end
+      - front-end
+  worker:
+    build: ./src/worker
+    depends_on:
+      - redis
+      - db
+    networks:
+      - back-end
+
+networks:
+  front-end:
+  back-end:

@@ -348,3 +348,207 @@ docker run --entrypoint [NEW_COMMAND] yourImageName [PARAMS]
 # Since we are just updating the ENTRYPOINT instruction, and we have a CMD instruction with the default params, that section is optional.
 docker run --entrypoint sleep2.0 ubuntu 15
 ```
+
+# Docker Compose
+
+We have been working with docker run so far. But in common scenarios, we will need to set up a complex application running multiple services. Therefore, a better way to do it is to use Docker Compose.
+
+With Docker Compose we can create a configuration file in YAML format called docker-compose.yml and put together different services and the options specific to running them in this file. Then we could simply run a docker-compose command to bring up an entire application stack.
+
+Docker compose makes it easier to implement, run and maintain as all changes are always stored in the docker-compose configuration file. Tis is all only applicable to running containers on a single Docker host.
+
+## From now on, we will be referring to the next voting application stack:
+
+![alt text](./img/voting-app-architecture.png)
+
+**Remember, by this time it's super important that you always assign a name to your containers**
+
+There are two approaches for running a complete stack of services in a single Docker engine/host, these are:
+
+1. Run separate containers and use the --link option to create a link between two containers. You will have to add every link that you need for each service/container that you create. Here is an example for the voting-app stack:
+
+The voting app web service (written in python) is dependent on the redis service when the web server starts. When the web server starts it looks for a redis service running on host Redis, but the voting app container cannot resolve a host. In order to solve this, we need to add a link when running the voting-app container to link it to the redis container.
+
+```sh
+docker run -d --name=dependentContainer -p 5000:80 --link dependencyContainerName:hostThatServiceWillLookUp imageName
+```
+
+Example for voting service architecture:
+
+```sh
+docker run -d --name=redis redis
+docker run -d --name=voting-app -p 5000:80 --link redis:redis voting-app
+```
+
+What the command is in fact doing is it creates an entry into the etc host file on the container that has the dependency. In this case the host will be included within the etc host file in the voting-app container with the IP of the redis container and the alias "redis".
+
+Complete example using docker run and links:
+
+```sh
+docker run -d --name=redis redis
+docker run -d --name=voting-app -p 5000:80 --link redis:redis voting-app
+docker run -d --name=db postgres
+docker run -d --name=result -p 5001:80 --link db:db result-app
+docker run -d --name=worker --link db:db --link redis:redis worker
+```
+
+**Using links like we used for the worker container is deprecated and the support may be removed in the future in Docker.**
+
+2. Using Docker compose: Once we have the Docker run commands tested and ready, its easier to generate a Docker compose file from it. We start by creating a dictionary of container names. The key will be the container name, within that key, we have to specify the image, finally all the options that we set in the docker run command as other values (remember that it follows the YAML syntax). Finally we can use a links property that can have a list inside it, whichever container requires the link will have that property and provide an array. The array will have as values all the keys that we defined (which as mentioned, are all the container names).
+
+When assigning values to the links property, as you may remember from the docker run we have to specify both the source and target (--link dependencyContainerName:hostThatServiceWillLookUp). If we only specify a single value, without the source:targe structure, the engine will assume that the source and target have the same value.
+
+### Resulting docker-compose file:
+
+```YAML
+redis:
+    image: redis
+db:
+    image: postgres:9.4
+voting-app:
+    image: voting-app
+    ports:
+        - 5000:80
+    links:
+        - redis
+result:
+    image: result-app
+    ports:
+        - 5001:80
+    links:
+        - db
+worker:
+    image: worker
+    links:
+        - redis
+        - db
+
+```
+
+Once we have our docker-compose.yml file ready, bringing up the stack is really simple. In order to do this we have to use the next command:
+
+```sh
+docker-compose up
+```
+
+## Docker Compose build
+
+We have assumed that all images are already built. Some images (redis and postgres) may be available on Docker Hub. But we have also use custom images (voting-app, result, worker) that are our own applications. Its not necessary that all images are already built and available in the Docker registry. We can instruct docker-compose to run a Docker build instead of pulling an image. In order to do so, we simply need to replace the "image" property with a "build" property and specify the location were the engine can find our Dockerfile for that image. After these changes, the docker-compose.yml file has to look like this:
+
+```YAML
+redis:
+    image: redis
+db:
+    image: postgres:9.4
+voting-app:
+    build: ./vote
+    ports:
+        - 5000:80
+    links:
+        - redis
+result:
+    build: ./result
+    ports:
+        - 5001:80
+    links:
+        - db
+worker:
+    build: ./worker
+    links:
+        - redis
+        - db
+
+```
+
+This time, when we run the docker-compose up command, it will:
+
+1. Build the images
+2. Give a temporary name the built images
+3. Use those images to run containers using the options you specified
+
+## Docker Compose versions
+
+There are different formats for docker-compose files because, docker-compose keeps evolving over time. By default, the engine will assume that you are working under version 1. For version two and up, you must specify the version of Docker compose file you are intending to use by adding a version key at the top of the file.
+
+- Version one: Is the one we've used in the previous example. This version Had a lot of limitations. For example, all containers ere deployed on the same default bridge network, you cannot change that while working in this version. You cannot specify dependencies between containers, what this means is that you were not able to start a container only after another one was up and running.
+- Version two and up: Came with the support for pre-requisites to run a container. You no longer specify your stack information directly as we did before, it is all encapsulated in a "services" section/property and inside of that property you would specify your stack information. Another difference is with networking, in v1 docker-compose attached all the containers it runs to a default bridge network, then it used links to enable communication between containers. For v2, docker-compose automatically creates a dedicated bridge network for the application, then it attaches all containers to that new network.Thanks to this, all containers are able to communicate with each other using each other's service name. Basically, you don't need to use links in version two and above of docker-compose. Finally, v2 introduced a "depends on" feature. With this, you can specify a startup order by adding a "depends_on" property for each service, the value of that property will be the list of services that must be up and running before the new service starts.
+
+```YAML
+version: "2"
+Services:
+    redis:
+        image: redis
+    db:
+        image: postgres:9.4
+    voting-app:
+        build: ./vote
+        ports:
+            - 5000:80
+        depends_on:
+            - redis
+    result:
+        build: ./result
+        ports:
+            - 5001:80
+        depends_on:
+            - db
+    worker:
+        build: ./worker
+        depends_on:
+            - redis
+            - db
+
+```
+
+- Version three (latest by the time): It's similar to v2 in the structure, it has a version and services properties at root level. This version comes with support for Docker swarm.
+
+# Networking with Docker Compose
+
+**Remember that this is available for version two and up of docker-compose**
+
+So far, we've been just deploying all the containers on the default bridge network. In the real world it doesn't work like that, we should contain the traffic from the different sources. For example, separate the user generated traffic (front-end network in the diagram) from the application's internal traffic (back-end network in the diagram). We first create the networks and then connect all the components to their corresponding network. To create the networks we have a new property called "networks". The value of that new property will be all the networks that we want to create. Each network will be an object within the "networks" property. Then, under each service create a networks property and provide the list of networks that service must be attached to.
+
+```YAML
+version: "2"
+Services:
+    redis:
+        image: redis
+        networks:
+            - back-end
+    db:
+        image: postgres:9.4
+        networks:
+            - back-end
+    voting-app:
+        build: ./vote
+        ports:
+            - 5000:80
+        depends_on:
+            - redis
+        networks:
+            - back-end
+            - front-end
+    result:
+        build: ./result
+        ports:
+            - 5001:80
+        depends_on:
+            - db
+        networks:
+            - back-end
+            - front-end
+    worker:
+        build: ./worker
+        depends_on:
+            - redis
+            - db
+        networks:
+            - back-end
+networks:
+    front-end:
+    back-end:
+```
+
+# Repo for voting-app source code
+
+[Link to official docker samples repo with voting-app source code](https://github.com/dockersamples/example-voting-app)

@@ -673,3 +673,35 @@ docker run \
 ![alt text](./img/volume-architecture.png)
 
 Who is responsible of maintaining the layer architecture, creating a writable layer (container layer), moving files across layers to enable copy and write, etc.? It's the storage drivers. Docker uses storage drivers to enable layered architecture. The selection of the storage driver depends on the underlying OS being use by the host. Docker will choose the best storage driver available automatically based on the OS. The different storage drivers also provide performance and stability characteristics.
+
+## Docker Networking
+
+When you install Docker, it creates three networks automatically which are:
+
+- Bridge: Default network a container gets attached to. If you would like to associate the container to any other network, you specify the network information using the --network option from the docker run command. It's a private internal network created by Docker on the host. As mentioned, all containers are attached to this network by default, therefore, they get an internal IP address from that network which is usually in the range 172.17.0.0. The containers can access each other using this internal IP. We can also access these containers from the outside world by mapping the ports of these containers to ports on the docker host.
+
+```sh
+docker run ImageName --network=yourNetworkName
+```
+
+- none: Containers are not attached to any network and doesn't have any access to the external network or other containers. They are in an isolated network.
+- host: Is another way to externally access the containers is to associate the container to the host network.This approach takes out any network isolation between the docker host and the docker container. If we have a service running on a certain port within the container, it will be automatically accessible on the same port externally without requiring any port mapping as the web container uses the hosts network. This would also mean that unlike before, you will now not be able to run multiple web containers on the same host on the same port as the ports are now common to all containers in the host network.
+
+![alt text](./img/default-networks.png)
+
+### What if we wish to isolate the containers within the docker host?
+
+By default, Docker only creates the internal bridge network. We could create our own internal network using the command docker network create. We can specify the driver, subnet and the name of the network.
+
+```sh
+docker network create --driver bridge --subnet 182.18.0.0/16 yourNetworkName
+
+#List all networks
+docker network ls
+```
+
+### Embedded DNS
+
+Containers can reach each other using their names. All containers in a docker host can resolve each other names with the name of the container. Docker has a built in DNS Server that helps the containers to resolve each other using the container name. That built in DNS Server always runs at address 127.0.0.11.
+
+How does Docker implement networking? Docker uses network namespaces that creates a separate namespace for each container. It then uses virtual Ethernet pairs to connect containers together.

@@ -579,3 +579,39 @@ docker run -d -p 5000:5000 --name registry registry:2
 
 docker image tag sourceImage your_private_registry_url/imageName
 ```
+
+# Docker Engine
+
+We will look at Docker's architecture and how it actually runs applications in isolated containers and how it works under the hood. Docker engine refers to a host with Docker installed on it.
+
+When you install Docker on a linux host, you're actually installing three different components which are:
+
+1. Docker CLI: CMD that we use to perform actions with Docker. It uses the REST API to interact with the Daemon. It doesn't need to be on the same host. It could be on another system and still work with a remote Docker . In order to do use you have to use de -H option on your docker command and specify the remote Docker engine address and the port
+
+```sh
+docker -H=remote-docker-engine-address:port run imageName
+```
+
+2. REST API: Interface that programs can use to talk to the daemon and provide instructions.
+3. Docker Daemon: Background process that manages Docker objects (containers, images, volumes and networks).
+
+## Containerization
+
+Under the hood, Docker uses namespaces to isolate workspace process IDs, network, inter communication processes, mounts and Unix time sharing systems. These resources are created in their own namespace, thereby, providing isolation between containers.
+
+### Namespace isolation techniques
+
+#### Process ID namespace (PID)
+
+Process ID's are unique within a running OS. If we were to create a container which is basically like a child system within the current system, the child system needs to think that it is an independent system on its own and it has its own set of processes originating from a root process (just like any OS) with a process ID of one (staring point).
+
+We know that there is no hard isolation between the containers and the underlying host. The processes running inside a container are in fact, processes running on the underlying host. Containers can create new processes as well as their underlying host, this can lead to duplicate processes ID's but thats where namespaces come into play.
+
+With process ID namespace, each process can have multiple process ID's associated with it. When we create a container it will have its own process tree, but all processes are in fact running on the same host but separated into their own containers using namespace. You will be able to see the same processes from the child systems (containers) running on the host, but they will have a different process ID from the one they have inside the container process tree.
+![alt text](./img/process-tree-mapping.png)
+
+### cgroups
+
+We've learned that the underlying Docker host as wel as the containers share the same system resources (CPU, memory, etc). But how can we tell how much of the resources are dedicated to the host and the containers? how does Docker manage and share the resources between containers?
+
+By default, there is no restriction as to how much of a resource a container can use and hence a container may end up utilizing all of the resources on the underlying host. There is a way to change that behavior. Docker uses Control Groups (cgroups) to restrict the amount of hardware resources allocated to each container. This can be done by providing the --cpus option to the docker run command. For example, providing a .5 will ensure that the container does not take up more than 50% of the host CPU at any given time. The same goes with memory, by using the --memory. For example, setting a value of 100m limits the amount of memory the container can use to just a hundred megabytes.

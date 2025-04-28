@@ -615,3 +615,61 @@ With process ID namespace, each process can have multiple process ID's associate
 We've learned that the underlying Docker host as wel as the containers share the same system resources (CPU, memory, etc). But how can we tell how much of the resources are dedicated to the host and the containers? how does Docker manage and share the resources between containers?
 
 By default, there is no restriction as to how much of a resource a container can use and hence a container may end up utilizing all of the resources on the underlying host. There is a way to change that behavior. Docker uses Control Groups (cgroups) to restrict the amount of hardware resources allocated to each container. This can be done by providing the --cpus option to the docker run command. For example, providing a .5 will ensure that the container does not take up more than 50% of the host CPU at any given time. The same goes with memory, by using the --memory. For example, setting a value of 100m limits the amount of memory the container can use to just a hundred megabytes.
+
+## Docker storage drivers and file systems
+
+### How does Docker stores data on the local system
+
+When you install Docker on a system it creates its folder structure at var/lib/docker. Within that path you will have multiple folders like containers, image, volumes, etc. This is where Docker stores all its data by default. Here when we say "data" we mean files related to images and containers running on the Docker host.
+
+### Docker's Layered architecture
+
+As we saw, each line of instruction in the dockerfile creates a new layer in the Docker image with just the changes from the previous layer. This is useful when we want to build a new version of the image, but it is also useful when we are working with a new image that has a similar base structure. Since both dockerfiles start with the same instructions, Docker is not going to build the common layers from the new dockerfile when the image is built. It will only start building the new layers from the first difference between images to the end of the new dockerfile instructions. The common layers are re-used.
+
+With this approach, Docker builds images faster and efficiently saves disk space. As mentioned, this is also applicable if we were to update our application code which is used in an image. Docker simply reuses all the previous layers from cache and rebuilds the application image by updating the latest source code.
+
+![alt text](./img/multiple-dockerfiles.png)
+
+Once an image is built, all the layers from the dockerfile become Read-Only. Every time we run a container, a new layer (container layer) is created. This writable layer is used to store data created by the container. The life of this layer though is only as long as the container is alive. When the container is destroyed, that layer and all of the changes stored in it are also destroyed.
+
+![alt text](./img/container-layer.png)
+As mentioned, after building an image all the layers become Read-Only, but normally, we copy the source code into a given location of the container using a COPY instruction from the Dockerfile. Does that mean that I cannot modify the source code once the container is created? No, I can still modify that file (created at a Read-only layer), but before I save the modified file, Docker automatically creates a copy of the file in the Read/Write layer (container layer) and I will then be modifying a different version of the file. All feature modifications will be done on this copy of the file. This is called "copy on write mechanism" the image layer being read-only just means that the files in these layers (Read-Only) will not be modified in the image itself, so the image will remain the same all the time until you rebuild the image using the docker build command.
+
+What happen when we get rid of a container? All of the data that was stored in the container layer also gets deleted. So, the changes we made to our source code as well as any other new change/file we created will also get removed. If we wished to persist that data, we can use a volume.
+
+### Volumes
+
+They help us to add a persistent volume to the container. To do this, first we create a volume using the next command:
+
+```sh
+docker volume create containerName
+docker volume create data_volume
+docker run -v yourNewVolume:locationInsideContainer imageName
+```
+
+The locationInsideContainer is the folder that you want to persist. That run command will create a container and mount the data volume we created into the location we specified inside the container. All data written by the container's processes to that path will be stored on the volume created on the docker host. Therefore, even if the container is destroyed, the data will be present in the /var/lib/docker/volumes location.
+
+What happens if we didn't create the volume before running the container? If the -v param is sent in the docker run command, docker will automatically create a new volume and mount it to the container.
+
+What if we had our data already at another location (an external storage on the docker host)? can we store the data on another path but the default /var/lib/docker/volumes location? Yes we can! we just need to specify that location as a param for the -v option in the docker run command. This is called bind mounting.
+
+```sh
+docker run -v /not/the/default/location/in/host:/location/inside/container imageName
+```
+
+#### Mounting types:
+
+1. Volume mounting: The host location will be the default (/var/lib/docker/volumes)
+2. Bind mounting: Mounts a directory from any location within the docker host.
+
+Now days we are trying to avoid the use of -v option. Instead we prefer the --mount as it is more verbose. With that option you have to specify each parameter in a key equals value format. Example:
+
+```sh
+docker run -v /data/mysql:/var/lib/mysql mysql
+docker run \
+--mount type=bind,source=/data/mysql,target=/var/lib/mysql mysql
+```
+
+![alt text](./img/volume-architecture.png)
+
+Who is responsible of maintaining the layer architecture, creating a writable layer (container layer), moving files across layers to enable copy and write, etc.? It's the storage drivers. Docker uses storage drivers to enable layered architecture. The selection of the storage driver depends on the underlying OS being use by the host. Docker will choose the best storage driver available automatically based on the OS. The different storage drivers also provide performance and stability characteristics.

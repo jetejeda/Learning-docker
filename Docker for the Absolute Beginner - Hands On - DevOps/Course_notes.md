@@ -705,3 +705,83 @@ docker network ls
 Containers can reach each other using their names. All containers in a docker host can resolve each other names with the name of the container. Docker has a built in DNS Server that helps the containers to resolve each other using the container name. That built in DNS Server always runs at address 127.0.0.11.
 
 How does Docker implement networking? Docker uses network namespaces that creates a separate namespace for each container. It then uses virtual Ethernet pairs to connect containers together.
+
+# Container Orchestration
+
+So far we have seen that with Docker we can run a single instance of an application. What happens when the number of users increases and that single instance is no longer able to handle the load. You will have to deploy additional instances using multiple docker run commands. With this approach, you have to manually start the new instances, monitor load and performance of the application. Additionally you will have to keep an eye on the health of these instances, if a container fails you will have to manually reboot it.
+
+What about the Docker host? if it crashes, all the containers in that host become inaccessible too.
+
+In order to solve these issues you would need a dedicated engineer to monitor the state, performance and health of each container and take necessary actions to remediate each situation. When you have large applications with several containers, that's not a practical approach.
+
+Container Orchestration is a solution for this issue. It consist of a set of tools and scripts that can help host containers in a production environment. Typically they consist of multiple Docker hosts that can host multiple containers. Therefore, even if a Docker host fails, the application is still accessible through the other hosts.
+
+The orchestration solutions can help you automatically scale up/down depending of the demand of your application. They also provide support for advanced networking between containers across different hosts as well as load balancing user requests across different hosts. It also provide support for sharing storage between the hosts as well as support for configuration management and security within the cluster.
+
+## Docker Swarm Overview
+
+![alt text](./img/docker-swarm-overview.png)
+Is an Orchestration tool which can combine multiple Docker machines/hosts together into a single cluster. It will take care of distributing your services or your application instances into separate hosts for high availability and for load balancing across different systems and hardware. To set up a Docker swarm you must first have multiple hosts with Docker installed on them.
+
+Docker Swarm follows the Master-worker architecture, therefore, you must designate one host to be the manager/master and the rest as workers/slaves. Once that is set, run the docker swarm init command on the manager, this will initialize the swarm manager. The output will also provide the command to be run on the workers so just copy it and run it on the worker nodes to join the manager.
+
+![alt text](./img/setup-docker-swarm.png)
+
+After joining the swarm the workers are also referred to as nodes. Now you can utilize the cluster to run multiple instances of your application with a single command on the manager. They key component of swarm orchestration is the docker service. Docker services are one or more instances of a single application or service that runs across the nodes in the swarm cluster. This means that you can create a docker service of your application which will be able to run in multiple instances across the swarm cluster. On the manager node run the next command:
+
+```sh
+docker service create --replicas=replicasAmount imageName
+
+#example
+docker service create --replicas=5 nginx
+```
+
+The replicas will be the amount of instances/containers that will be distributed across the different worker nodes. The docker service create command is similar to the docker run command.
+
+![alt text](./img/docker-service.png)
+
+## Kubernetes Overview
+
+With Docker we were able to run a single instance of an application using the docker CLI by running the docker run command. With Kubernetes using the Kubernetes CLI (Kube control) we can run thousands of instances of an application with a single command. It can also configure autoscaling automatically based on the load. You can test new features in just a percentage of your instances, meaning that you can easily perform A/B testing methods.
+
+It's open architecture provides support for many different networks and storage renders. It also supports a variety of authentication and authorization mechanisms.
+
+### Relationship between Docker and Kubernetes
+
+Kubernetes uses Docker hosts to host applications in the form of Docker containers. A kubernetes cluster consists of a set of nodes.
+
+A node is a machine in which the Kubernetes set of tools are installed. It's where containers will be launched by Kubernetes. What if the node fails? Yo need to have several nodes. A cluster is a set of nodes grouped together. This way, even if a node fails, you will still have the application running on the other nodes.
+
+Who is responsible for managing the cluster and each nodes? That will be the master node. The master node has a Kubernetes control plane components installed. The master watches over the nodes in the cluster and is responsible for the actual orchestration of containers on the worker nodes.
+
+When you install kubernetes on a system, you are actually installing these components:
+
+- API Server: Acts as the front end for Kubernetes. Used to interact with the cluster.
+- etcd server: Distributed reliable key value store used by Kubernetes to store all data used to manage the cluster.
+- Kubelet server: Engine that runs on each node in the cluster. It's responsible for making sure that the containers are running on the nodes as expected.
+- Container runtime engine: Underlying software that is used to run containers (Docker).
+- Controllers: Brain behind orchestration. They're responsible for noticing and responding when nodes containers or endpoints closed down. It makes decisions to bring up new containers in such cases.
+- Scheduler: Distributing work/containers across multiple nodes. It looks for newly created containers and assigns them to nodes.
+
+### The kube Command Line Tool (kubectl)
+
+Is the Kubernetes CLI which is used to deploy and manage applications on a Kubernetes cluster to get cluster related information, status of the nodes in the cluster, etc. In order to deploy an application to a Kubernetes cluster use the next command:
+
+```sh
+kubectl run yourImage
+
+#example
+kubectl run hello-minikube
+```
+
+To view information about the cluster:
+
+```sh
+kubectl cluster-info
+```
+
+To list all the nodes that are part of the cluster:
+
+```sh
+kubectl get nodes
+```
